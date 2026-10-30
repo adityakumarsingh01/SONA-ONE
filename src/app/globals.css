@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F5F1E8;
+  --background-secondary: #E9E2D5;
+  --foreground: #111111;
+  --muted: #5F5A52;
+  --coral: #FF4D4D;
+  --blue: #3867FF;
+  --yellow: #FFD84D;
+  --dark: #10131A;
+  --white: #FFFFFF;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-secondary: var(--background-secondary);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-coral: var(--coral);
+  --color-blue: var(--blue);
+  --color-yellow: var(--yellow);
+  --color-dark: var(--dark);
+  --color-white: var(--white);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ensure the 3D WebGL Canvas never intercepts native mobile scrolling */
+canvas {
+  pointer-events: none !important;
+  touch-action: pan-y !important;
+}
+
+@keyframes soundWave {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-sound-wave {
+  animation: soundWave 1.2s ease-in-out infinite;
+  transform-origin: bottom;
+}
