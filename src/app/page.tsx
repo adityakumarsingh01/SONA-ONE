@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -11,6 +12,7 @@ gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 export default function Home() {
   const containerRef = useRef<HTMLElement>(null);
+  const router = useRouter();
 
   // State for Configurator
   const [selectedSize, setSelectedSize] = useState('M');
@@ -371,7 +373,11 @@ export default function Home() {
               Sound designed to stay with you.
             </p>
 
-            <button ref={s6CtaRef} className="mt-10 px-8 py-4 bg-foreground text-background font-bold tracking-widest text-xs uppercase hover:scale-105 transition-transform opacity-0 pointer-events-auto shadow-2xl">
+            <button
+              ref={s6CtaRef}
+              onClick={() => router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`)}
+              className="mt-10 px-8 py-4 bg-foreground text-background font-bold tracking-widest text-xs uppercase hover:scale-105 transition-transform opacity-0 pointer-events-auto shadow-2xl"
+            >
               GET YOURS &rarr;
             </button>
           </div>
@@ -685,6 +691,7 @@ export default function Home() {
               {/* ACTIONS */}
               <div className="flex flex-col gap-2 md:gap-3">
                 <button
+                  onClick={() => router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`)}
                   className="w-full py-4 text-xs font-black tracking-widest uppercase transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl"
                   style={{ backgroundColor: 'var(--accent)', color: '#FFF', boxShadow: `0 10px 25px var(--accent-soft)` }}
                 >
