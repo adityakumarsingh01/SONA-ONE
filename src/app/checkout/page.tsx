@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { trackEcommerce } from '@/lib/gtag';
 
 const VARIANTS = [
   { id: 'red', name: 'SONA Red', primary: '#FF4D4D' },
@@ -13,6 +14,8 @@ const VARIANTS = [
 export default function CheckoutPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderId, setOrderId] = useState('');
+  const purchaseTrackedRef = useRef(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -51,13 +54,103 @@ export default function CheckoutPage() {
   const tax = Math.round(subtotal * 0.18);
   const total = subtotal + shipping + tax;
 
+  // Track checkout initiation and cart view upon landing on the checkout page
+  useEffect(() => {
+    trackEcommerce('view_cart', {
+      value: subtotal,
+      items: [
+        {
+          item_id: `sona-one-${selectedVariant.id}`,
+          item_name: `SONA ONE - ${selectedVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
+          price: unitPrice,
+          quantity: orderInfo.quantity,
+        },
+      ],
+    });
+
+    trackEcommerce('begin_checkout', {
+      value: total,
+      items: [
+        {
+          item_id: `sona-one-${selectedVariant.id}`,
+          item_name: `SONA ONE - ${selectedVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
+          price: unitPrice,
+          quantity: orderInfo.quantity,
+        },
+      ],
+    });
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleContinueToPayment = () => {
+    trackEcommerce('add_shipping_info', {
+      value: total,
+      shipping_tier: 'Free Express Shipping',
+      items: [
+        {
+          item_id: `sona-one-${selectedVariant.id}`,
+          item_name: `SONA ONE - ${selectedVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
+          price: unitPrice,
+          quantity: orderInfo.quantity,
+        },
+      ],
+    });
+    setStep(2);
+  };
+
+  const handleReviewOrder = () => {
+    trackEcommerce('add_payment_info', {
+      value: total,
+      payment_type: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
+      items: [
+        {
+          item_id: `sona-one-${selectedVariant.id}`,
+          item_name: `SONA ONE - ${selectedVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
+          price: unitPrice,
+          quantity: orderInfo.quantity,
+        },
+      ],
+    });
+    setStep(3);
+  };
+
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (purchaseTrackedRef.current) return;
+
+    const generatedOrderId = `SONA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    setOrderId(generatedOrderId);
     setOrderPlaced(true);
+    purchaseTrackedRef.current = true;
+
+    trackEcommerce('purchase', {
+      transaction_id: generatedOrderId,
+      value: total,
+      tax,
+      shipping,
+      payment_type: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
+      items: [
+        {
+          item_id: `sona-one-${selectedVariant.id}`,
+          item_name: `SONA ONE - ${selectedVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
+          price: unitPrice,
+          quantity: orderInfo.quantity,
+        },
+      ],
+    });
   };
 
   // Format card number with spaces
@@ -94,7 +187,7 @@ export default function CheckoutPage() {
             Your SONA ONE in <span className="text-foreground font-bold">{selectedVariant.name}</span> is on its way.
           </p>
           <p className="text-xs text-muted/70 font-medium tracking-wide mb-8">
-            Order #SONA-{Math.random().toString(36).substring(2, 8).toUpperCase()} &bull; Confirmation sent to {form.email || 'your email'}
+            Order #{orderId || 'SONA-CONFIRMED'} &bull; Confirmation sent to {form.email || 'your email'}
           </p>
 
           {/* Order Summary Card */}
@@ -304,7 +397,7 @@ export default function CheckoutPage() {
 
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={handleContinueToPayment}
                   className="mt-8 w-full py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-lg"
                   style={{ boxShadow: '0 10px 25px rgba(255, 77, 77, 0.2)' }}
                 >
@@ -430,7 +523,7 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
+                    onClick={handleReviewOrder}
                     className="flex-1 py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-lg"
                     style={{ boxShadow: '0 10px 25px rgba(255, 77, 77, 0.2)' }}
                   >

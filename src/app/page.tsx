@@ -1,12 +1,13 @@
 'use client';
 
-import { useRef, useState, Fragment } from "react";
+import { useRef, useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import ProductScene from "@/components/3d/ProductScene";
 import { setScrollProgress, getScrollProgress, registerScrollToSection, scrollToSection } from "@/lib/scrollStore";
+import { trackEcommerce, trackEvent } from "@/lib/gtag";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -42,6 +43,89 @@ export default function Home() {
     }
   ];
   const activeVariant = VARIANTS[selectedVariant];
+
+  // Track initial product view & catalog listing on mount
+  useEffect(() => {
+    trackEcommerce('view_item_list', {
+      item_list_id: 'sona_variants',
+      item_list_name: 'SONA ONE Color Variants',
+      items: VARIANTS.map(v => ({
+        item_id: `sona-one-${v.id}`,
+        item_name: `SONA ONE - ${v.name}`,
+        item_category: 'Headphones',
+        item_variant: v.name,
+        price: 9999,
+        quantity: 1,
+      })),
+    });
+
+    trackEcommerce('view_item', {
+      value: 9999,
+      items: [
+        {
+          item_id: `sona-one-${activeVariant.id}`,
+          item_name: `SONA ONE - ${activeVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: activeVariant.name,
+          price: 9999,
+          quantity: 1,
+        },
+      ],
+    });
+  }, []);
+
+  const handleVariantSelect = (idx: number) => {
+    setSelectedVariant(idx);
+    const variant = VARIANTS[idx];
+    trackEcommerce('select_item', {
+      item_list_id: 'sona_variants',
+      item_list_name: 'SONA ONE Color Variants',
+      items: [
+        {
+          item_id: `sona-one-${variant.id}`,
+          item_name: `SONA ONE - ${variant.name}`,
+          item_category: 'Headphones',
+          item_variant: variant.name,
+          price: 9999,
+          quantity: 1,
+        },
+      ],
+    });
+  };
+
+  const handleAddToCart = () => {
+    trackEcommerce('add_to_cart', {
+      value: 9999 * quantity,
+      items: [
+        {
+          item_id: `sona-one-${activeVariant.id}`,
+          item_name: `SONA ONE - ${activeVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${activeVariant.name} / ${selectedSize}`,
+          price: 9999,
+          quantity,
+        },
+      ],
+    });
+    router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`);
+  };
+
+  const handleBuyNow = () => {
+    trackEcommerce('begin_checkout', {
+      value: 9999 * quantity,
+      items: [
+        {
+          item_id: `sona-one-${activeVariant.id}`,
+          item_name: `SONA ONE - ${activeVariant.name}`,
+          item_category: 'Headphones',
+          item_variant: `${activeVariant.name} / ${selectedSize}`,
+          price: 9999,
+          quantity,
+        },
+      ],
+    });
+    router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`);
+  };
 
   // Phase 1-4 Refs (Hero)
   const heroContentRef = useRef<HTMLDivElement>(null);
@@ -375,7 +459,7 @@ export default function Home() {
 
             <button
               ref={s6CtaRef}
-              onClick={() => router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`)}
+              onClick={handleBuyNow}
               className="mt-10 px-8 py-4 bg-foreground text-background font-bold tracking-widest text-xs uppercase hover:scale-105 transition-transform opacity-0 pointer-events-auto shadow-2xl"
             >
               GET YOURS &rarr;
@@ -659,7 +743,7 @@ export default function Home() {
                   {VARIANTS.map((variant, idx) => (
                     <button
                       key={variant.id}
-                      onClick={() => setSelectedVariant(idx)}
+                      onClick={() => handleVariantSelect(idx)}
                       className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300"
                       style={{
                         border: selectedVariant === idx ? `2px solid var(--accent)` : '2px solid transparent'
@@ -691,13 +775,14 @@ export default function Home() {
               {/* ACTIONS */}
               <div className="flex flex-col gap-2 md:gap-3">
                 <button
-                  onClick={() => router.push(`/checkout?variant=${activeVariant.id}&size=${selectedSize}&qty=${quantity}`)}
+                  onClick={handleBuyNow}
                   className="w-full py-4 text-xs font-black tracking-widest uppercase transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl"
                   style={{ backgroundColor: 'var(--accent)', color: '#FFF', boxShadow: `0 10px 25px var(--accent-soft)` }}
                 >
                   Buy Now
                 </button>
                 <button
+                  onClick={handleAddToCart}
                   className="w-full py-4 border text-xs font-black tracking-widest uppercase text-foreground transition-all duration-300 transform hover:-translate-y-1 hover:bg-foreground hover:text-[var(--background)] max-md:hidden"
                   style={{ borderColor: 'var(--accent)' }}
                 >
@@ -741,7 +826,10 @@ export default function Home() {
           <div ref={footerCtaRef} className="flex flex-col items-start md:items-end text-left md:text-right opacity-0">
             <h3 className="text-2xl md:text-3xl font-black tracking-tighter text-foreground mb-2">READY TO HEAR DIFFERENT?</h3>
             <p className="text-xs md:text-sm text-muted font-medium tracking-wide mb-6">Experience sound engineered for movement.</p>
-            <button className="group relative bg-foreground text-[var(--background)] px-8 py-4 text-xs font-black tracking-widest uppercase overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+            <button
+              onClick={handleBuyNow}
+              className="group relative bg-foreground text-[var(--background)] px-8 py-4 text-xs font-black tracking-widest uppercase overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+            >
               <span className="relative z-10 flex items-center gap-3">
                 EXPLORE SONA ONE
                 <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
