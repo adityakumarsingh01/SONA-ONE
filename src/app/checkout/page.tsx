@@ -1,23 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useCart } from '@/lib/cartStore';
 import { trackEcommerce } from '@/lib/gtag';
 
-const VARIANTS = [
-  { id: 'red', name: 'SONA Red', primary: '#FF4D4D' },
-  { id: 'midnight', name: 'Midnight', primary: '#171820' },
-  { id: 'forest', name: 'Forest', primary: '#2A6A50' },
-  { id: 'cobalt', name: 'Cobalt', primary: '#1746A2' },
-];
-
 export default function CheckoutPage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [orderPlaced, setOrderPlaced] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const purchaseTrackedRef = useRef(false);
+  const router = useRouter();
+  const { items, subtotal, shipping, tax, total, clearCart } = useCart();
 
-  // Form state
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'upi'>('card');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [demoPaymentFailed, setDemoPaymentFailed] = useState(false);
+
+  // Form State
   const [form, setForm] = useState({
     email: '',
     firstName: '',
@@ -28,81 +27,47 @@ export default function CheckoutPage() {
     zip: '',
     country: 'India',
     phone: '',
-    cardNumber: '',
-    cardName: '',
-    expiry: '',
-    cvv: '',
-    upiId: '',
-  });
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'upi'>('card');
-
-  // Read order info from URL params (populated by Buy Now button)
-  const [orderInfo] = useState(() => {
-    if (typeof window === 'undefined') return { variant: 'red', size: 'M', quantity: 1 };
-    const params = new URLSearchParams(window.location.search);
-    return {
-      variant: params.get('variant') || 'red',
-      size: params.get('size') || 'M',
-      quantity: Number(params.get('qty')) || 1,
-    };
+    cardNumber: '4242 4242 4242 4242',
+    cardName: 'DEMO BUYER',
+    expiry: '12/28',
+    cvv: '888',
+    upiId: 'demo@sona',
   });
 
-  const selectedVariant = VARIANTS.find(v => v.id === orderInfo.variant) || VARIANTS[0];
-  const unitPrice = 9999;
-  const subtotal = unitPrice * orderInfo.quantity;
-  const shipping = 0;
-  const tax = Math.round(subtotal * 0.18);
-  const total = subtotal + shipping + tax;
-
-  // Track checkout initiation and cart view upon landing on the checkout page
+  // Track begin_checkout upon entering
   useEffect(() => {
-    trackEcommerce('view_cart', {
-      value: subtotal,
-      items: [
-        {
-          item_id: `sona-one-${selectedVariant.id}`,
-          item_name: `SONA ONE - ${selectedVariant.name}`,
-          item_category: 'Headphones',
-          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
-          price: unitPrice,
-          quantity: orderInfo.quantity,
-        },
-      ],
-    });
-
-    trackEcommerce('begin_checkout', {
-      value: total,
-      items: [
-        {
-          item_id: `sona-one-${selectedVariant.id}`,
-          item_name: `SONA ONE - ${selectedVariant.name}`,
-          item_category: 'Headphones',
-          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
-          price: unitPrice,
-          quantity: orderInfo.quantity,
-        },
-      ],
-    });
+    if (items.length > 0) {
+      trackEcommerce('begin_checkout', {
+        value: total,
+        items: items.map((i) => ({
+          item_id: i.product.id,
+          item_name: i.product.name,
+          item_category: i.product.category,
+          item_variant: `${i.selectedColor} / ${i.selectedSize || 'Standard'}`,
+          price: i.product.price,
+          quantity: i.quantity,
+        })),
+      });
+    }
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleContinueToPayment = () => {
+  const handleContinueToPayment = (e: React.FormEvent) => {
+    e.preventDefault();
     trackEcommerce('add_shipping_info', {
       value: total,
-      shipping_tier: 'Free Express Shipping',
-      items: [
-        {
-          item_id: `sona-one-${selectedVariant.id}`,
-          item_name: `SONA ONE - ${selectedVariant.name}`,
-          item_category: 'Headphones',
-          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
-          price: unitPrice,
-          quantity: orderInfo.quantity,
-        },
-      ],
+      shipping_tier: 'Insured Air Freight',
+      items: items.map((i) => ({
+        item_id: i.product.id,
+        item_name: i.product.name,
+        item_category: i.product.category,
+        item_variant: `${i.selectedColor} / ${i.selectedSize || 'Standard'}`,
+        price: i.product.price,
+        quantity: i.quantity,
+      })),
     });
     setStep(2);
   };
@@ -111,563 +76,520 @@ export default function CheckoutPage() {
     trackEcommerce('add_payment_info', {
       value: total,
       payment_type: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
-      items: [
-        {
-          item_id: `sona-one-${selectedVariant.id}`,
-          item_name: `SONA ONE - ${selectedVariant.name}`,
-          item_category: 'Headphones',
-          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
-          price: unitPrice,
-          quantity: orderInfo.quantity,
-        },
-      ],
+      items: items.map((i) => ({
+        item_id: i.product.id,
+        item_name: i.product.name,
+        item_category: i.product.category,
+        item_variant: `${i.selectedColor} / ${i.selectedSize || 'Standard'}`,
+        price: i.product.price,
+        quantity: i.quantity,
+      })),
     });
     setStep(3);
   };
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (purchaseTrackedRef.current) return;
+  const handlePlaceOrder = (simulateFailure = false) => {
+    setIsProcessing(true);
+    setDemoPaymentFailed(false);
 
-    const generatedOrderId = `SONA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    setOrderId(generatedOrderId);
-    setOrderPlaced(true);
-    purchaseTrackedRef.current = true;
+    setTimeout(() => {
+      setIsProcessing(false);
 
-    trackEcommerce('purchase', {
-      transaction_id: generatedOrderId,
-      value: total,
-      tax,
-      shipping,
-      payment_type: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
-      items: [
-        {
-          item_id: `sona-one-${selectedVariant.id}`,
-          item_name: `SONA ONE - ${selectedVariant.name}`,
-          item_category: 'Headphones',
-          item_variant: `${selectedVariant.name} / ${orderInfo.size}`,
-          price: unitPrice,
-          quantity: orderInfo.quantity,
-        },
-      ],
-    });
+      if (simulateFailure) {
+        setDemoPaymentFailed(true);
+        // Do NOT create order, do NOT fire purchase event, do NOT clear cart!
+        return;
+      }
+
+      // Successful demo payment:
+      const generatedOrderId = `SONA-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      const orderData = {
+        orderId: generatedOrderId,
+        date: new Date().toISOString(),
+        items: [...items],
+        subtotal,
+        shipping,
+        tax,
+        total,
+        shippingAddress: { ...form },
+        paymentMethod: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
+      };
+
+      // Save order for confirmation page
+      try {
+        sessionStorage.setItem('sona_last_order', JSON.stringify(orderData));
+      } catch (e) {
+        console.error('Session storage error', e);
+      }
+
+      // Track GA4 purchase event
+      trackEcommerce('purchase', {
+        transaction_id: generatedOrderId,
+        value: total,
+        tax,
+        shipping,
+        payment_type: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI',
+        items: items.map((i) => ({
+          item_id: i.product.id,
+          item_name: i.product.name,
+          item_category: i.product.category,
+          item_variant: `${i.selectedColor} / ${i.selectedSize || 'Standard'}`,
+          price: i.product.price,
+          quantity: i.quantity,
+        })),
+      });
+
+      // Clear the shopping bag only after successful order placement
+      clearCart();
+
+      // Navigate to order confirmation
+      router.push(`/order-confirmation?orderId=${generatedOrderId}`);
+    }, 1200);
   };
 
-  // Format card number with spaces
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 16);
-    return digits.replace(/(.{4})/g, '$1 ').trim();
-  };
-
-  // Format expiry as MM/YY
-  const formatExpiry = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 4);
-    if (digits.length >= 3) return digits.slice(0, 2) + '/' + digits.slice(2);
-    return digits;
-  };
-
-  // --- ORDER CONFIRMATION ---
-  if (orderPlaced) {
+  if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center px-6 pt-24 pb-12">
+      <div className="min-h-screen bg-[var(--background)] pt-32 pb-20 flex flex-col items-center justify-center px-6">
         <div className="max-w-md w-full text-center">
-          {/* Success Icon */}
-          <div className="w-20 h-20 rounded-full border-2 border-coral flex items-center justify-center mx-auto mb-8 relative">
-            <svg viewBox="0 0 24 24" className="w-10 h-10 stroke-coral stroke-[2]" fill="none">
-              <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-coral rounded-full" />
-          </div>
-
-          <p className="text-[10px] font-bold tracking-[0.3em] text-coral uppercase mb-2">ORDER CONFIRMED</p>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground mb-4">
-            THANK YOU.
-          </h1>
-          <p className="text-sm text-muted font-medium tracking-wide mb-2">
-            Your SONA ONE in <span className="text-foreground font-bold">{selectedVariant.name}</span> is on its way.
+          <h2 className="text-2xl font-black text-foreground mb-3">NO ITEMS TO CHECKOUT</h2>
+          <p className="text-xs text-muted mb-8 leading-relaxed">
+            Your shopping bag is currently empty. Please select an acoustic product from our store before proceeding to checkout.
           </p>
-          <p className="text-xs text-muted/70 font-medium tracking-wide mb-8">
-            Order #{orderId || 'SONA-CONFIRMED'} &bull; Confirmation sent to {form.email || 'your email'}
-          </p>
-
-          {/* Order Summary Card */}
-          <div className="relative border border-foreground/10 p-6 mb-8 text-left">
-            {/* Corner accents */}
-            <div className="absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
-            <div className="absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] border-foreground/30" />
-            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] border-foreground/30" />
-            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] border-foreground/30" />
-            <div className="absolute top-0 left-0 w-[5px] h-[5px] bg-coral" />
-
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 rounded-full" style={{ backgroundColor: selectedVariant.primary }} />
-              <div>
-                <p className="text-sm font-black tracking-widest text-foreground">SONA ONE</p>
-                <p className="text-[10px] text-muted font-bold tracking-wider">{selectedVariant.name} &bull; Size {orderInfo.size} &bull; Qty {orderInfo.quantity}</p>
-              </div>
-            </div>
-            <div className="border-t border-foreground/10 pt-4">
-              <div className="flex justify-between text-sm font-bold">
-                <span className="text-muted">Total Paid</span>
-                <span className="text-foreground">₹{total.toLocaleString('en-IN')}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/"
-              className="w-full py-4 bg-foreground text-[var(--background)] text-xs font-black tracking-widest uppercase text-center hover:scale-105 transition-transform"
-            >
-              CONTINUE SHOPPING
-            </Link>
-          </div>
-
-          {/* Demo Notice */}
-          <p className="mt-8 text-[10px] text-muted/50 font-bold tracking-wider uppercase">
-            ⚠ This is a demo — no real payment was processed
-          </p>
+          <Link
+            href="/shop"
+            className="px-8 py-4 bg-foreground text-background text-xs font-black tracking-widest uppercase hover:bg-coral transition-colors"
+          >
+            DISCOVER PRODUCTS →
+          </Link>
         </div>
       </div>
     );
   }
 
-  // --- CHECKOUT FORM ---
   return (
-    <div className="min-h-screen bg-[var(--background)] pt-20 pb-12">
-
-      {/* Top Bar */}
-      <div className="w-full px-6 md:px-12 lg:px-24 py-4 flex items-center justify-between border-b border-foreground/10">
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="block w-1.5 h-1.5 bg-coral rounded-full" />
-          <span className="font-black text-xs tracking-[0.3em] text-foreground group-hover:text-coral transition-colors">SONA</span>
-        </Link>
-        <p className="text-[10px] font-bold tracking-[0.3em] text-coral uppercase">CHECKOUT</p>
-      </div>
-
-      <div className="w-full max-w-6xl mx-auto px-6 md:px-12 pt-8 flex flex-col lg:flex-row gap-12">
-
-        {/* LEFT: Form Area */}
-        <div className="flex-1 min-w-0">
-
-          {/* Step Indicators */}
-          <div className="flex items-center gap-4 mb-8">
-            {[
-              { num: 1, label: 'SHIPPING' },
-              { num: 2, label: 'PAYMENT' },
-              { num: 3, label: 'REVIEW' },
-            ].map((s, i) => (
-              <React.Fragment key={s.num}>
-                {i > 0 && <div className={`flex-1 h-[1px] ${step >= s.num ? 'bg-coral' : 'bg-foreground/15'} transition-colors`} />}
-                <button
-                  onClick={() => { if (s.num < step) setStep(s.num as 1 | 2 | 3); }}
-                  className="flex items-center gap-2 group"
-                >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all duration-300 ${
-                    step >= s.num
-                      ? 'bg-coral text-white'
-                      : 'border border-foreground/20 text-foreground/40'
-                  }`}>
-                    {step > s.num ? '✓' : s.num}
-                  </div>
-                  <span className={`text-[10px] font-bold tracking-widest uppercase hidden sm:inline ${
-                    step >= s.num ? 'text-foreground' : 'text-foreground/40'
-                  }`}>
-                    {s.label}
-                  </span>
-                </button>
-              </React.Fragment>
-            ))}
+    <div className="min-h-screen bg-[var(--background)] pt-28 pb-20">
+      <div className="w-full max-w-6xl mx-auto px-6 md:px-12">
+        {/* Checkout Header */}
+        <div className="mb-10 pb-6 border-b border-foreground/10 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black tracking-[0.3em] text-coral uppercase mb-1">
+              DEMO CHECKOUT PORTAL
+            </p>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-foreground">
+              SECURE CHECKOUT
+            </h1>
           </div>
+          <Link href="/cart" className="text-xs font-bold text-muted hover:text-foreground uppercase">
+            ← EDIT BAG
+          </Link>
+        </div>
 
-          <form onSubmit={handlePlaceOrder}>
+        {/* Step Indicator */}
+        <div className="flex items-center gap-4 mb-10 max-w-md">
+          {[
+            { num: 1, label: 'SHIPPING' },
+            { num: 2, label: 'PAYMENT' },
+            { num: 3, label: 'CONFIRM' },
+          ].map((s, i) => (
+            <React.Fragment key={s.num}>
+              {i > 0 && (
+                <div
+                  className={`flex-1 h-[1.5px] transition-colors ${
+                    step >= s.num ? 'bg-coral' : 'bg-foreground/15'
+                  }`}
+                />
+              )}
+              <button
+                onClick={() => {
+                  if (s.num < step) setStep(s.num as any);
+                }}
+                className="flex items-center gap-2 group cursor-pointer"
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+                    step >= s.num
+                      ? 'bg-coral text-white shadow-md'
+                      : 'border border-foreground/20 text-muted'
+                  }`}
+                >
+                  {step > s.num ? '✓' : s.num}
+                </div>
+                <span
+                  className={`text-[10px] font-bold tracking-widest uppercase hidden sm:inline ${
+                    step >= s.num ? 'text-foreground font-black' : 'text-muted'
+                  }`}
+                >
+                  {s.label}
+                </span>
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
 
-            {/* STEP 1: SHIPPING */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Main Form (Left: 7 Cols) */}
+          <div className="lg:col-span-7">
+            {/* STEP 1: SHIPPING FORM */}
             {step === 1 && (
-              <div className="animate-fadeIn">
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter text-foreground mb-1">SHIPPING DETAILS</h2>
-                <p className="text-xs text-muted font-medium tracking-wide mb-8">Where should we send your SONA ONE?</p>
+              <form onSubmit={handleContinueToPayment} className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-foreground mb-1">
+                    1. SHIPPING INFORMATION
+                  </h2>
+                  <p className="text-xs text-muted">
+                    Enter the delivery address for insured air express shipping across India.
+                  </p>
+                </div>
 
-                <div className="space-y-5">
-                  {/* Email */}
+                <div>
+                  <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                    EMAIL ADDRESS *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    required
+                    placeholder="name@domain.com"
+                    className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">EMAIL</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={form.email}
-                      onChange={handleChange}
-                      required
-                      placeholder="you@example.com"
-                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors"
-                    />
-                  </div>
-
-                  {/* Name Row */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">FIRST NAME</label>
-                      <input
-                        type="text"
-                        name="firstName"
-                        value={form.firstName}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">LAST NAME</label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        value={form.lastName}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Address */}
-                  <div>
-                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">ADDRESS</label>
+                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                      FIRST NAME *
+                    </label>
                     <input
                       type="text"
-                      name="address"
-                      value={form.address}
+                      name="firstName"
+                      value={form.firstName}
                       onChange={handleChange}
                       required
-                      placeholder="123 Main Street, Apt 4"
-                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors"
+                      placeholder="Aditya"
+                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
                     />
                   </div>
-
-                  {/* City / State / Zip */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">CITY</label>
-                      <input
-                        type="text"
-                        name="city"
-                        value={form.city}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">STATE</label>
-                      <input
-                        type="text"
-                        name="state"
-                        value={form.state}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">PIN CODE</label>
-                      <input
-                        type="text"
-                        name="zip"
-                        value={form.zip}
-                        onChange={handleChange}
-                        required
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone */}
                   <div>
-                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">PHONE</label>
+                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                      LAST NAME *
+                    </label>
                     <input
-                      type="tel"
-                      name="phone"
-                      value={form.phone}
+                      type="text"
+                      name="lastName"
+                      value={form.lastName}
                       onChange={handleChange}
                       required
-                      placeholder="+91 98765 43210"
-                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors"
+                      placeholder="Singh"
+                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
                     />
                   </div>
                 </div>
 
+                <div>
+                  <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                    DELIVERY STREET ADDRESS *
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={form.address}
+                    onChange={handleChange}
+                    required
+                    placeholder="Apt 402, Signature Towers, MG Road"
+                    className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                      CITY *
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={form.city}
+                      onChange={handleChange}
+                      required
+                      placeholder="Bengaluru"
+                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                      STATE *
+                    </label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={form.state}
+                      onChange={handleChange}
+                      required
+                      placeholder="Karnataka"
+                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                      PIN CODE *
+                    </label>
+                    <input
+                      type="text"
+                      name="zip"
+                      value={form.zip}
+                      onChange={handleChange}
+                      required
+                      placeholder="560001"
+                      className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold tracking-widest text-foreground uppercase block mb-1.5">
+                    PHONE NUMBER *
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    required
+                    placeholder="+91 98765 43210"
+                    className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-xs text-foreground focus:border-coral focus:outline-none"
+                  />
+                </div>
+
                 <button
-                  type="button"
-                  onClick={handleContinueToPayment}
-                  className="mt-8 w-full py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-lg"
-                  style={{ boxShadow: '0 10px 25px rgba(255, 77, 77, 0.2)' }}
+                  type="submit"
+                  className="w-full py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.01] transition-transform shadow-lg"
+                  style={{ boxShadow: '0 8px 25px rgba(255, 77, 77, 0.25)' }}
                 >
-                  CONTINUE TO PAYMENT →
+                  PROCEED TO PAYMENT METHOD →
                 </button>
-              </div>
+              </form>
             )}
 
-            {/* STEP 2: PAYMENT */}
+            {/* STEP 2: PAYMENT METHOD */}
             {step === 2 && (
-              <div className="animate-fadeIn">
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter text-foreground mb-1">PAYMENT METHOD</h2>
-                <p className="text-xs text-muted font-medium tracking-wide mb-8">All transactions are secure and encrypted.</p>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-foreground mb-1">
+                    2. PAYMENT SIMULATION (DEMO)
+                  </h2>
+                  <p className="text-xs text-muted">
+                    This is a simulated demo payment system for academic testing. No real money or card is charged.
+                  </p>
+                </div>
 
-                {/* Payment Method Tabs */}
-                <div className="flex gap-3 mb-8">
+                <div className="flex gap-4">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('card')}
-                    className={`flex-1 py-3 border text-[10px] font-black tracking-widest uppercase transition-all duration-300 ${
+                    className={`flex-1 py-3 px-4 border text-xs font-black tracking-widest uppercase transition-all ${
                       paymentMethod === 'card'
                         ? 'border-coral bg-coral text-white'
-                        : 'border-foreground/15 text-foreground/60 hover:border-foreground/30'
+                        : 'border-foreground/15 text-muted hover:border-foreground/30'
                     }`}
                   >
-                    💳 CARD
+                    💳 CARD DEMO
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('upi')}
-                    className={`flex-1 py-3 border text-[10px] font-black tracking-widest uppercase transition-all duration-300 ${
+                    className={`flex-1 py-3 px-4 border text-xs font-black tracking-widest uppercase transition-all ${
                       paymentMethod === 'upi'
                         ? 'border-coral bg-coral text-white'
-                        : 'border-foreground/15 text-foreground/60 hover:border-foreground/30'
+                        : 'border-foreground/15 text-muted hover:border-foreground/30'
                     }`}
                   >
-                    ₹ UPI
+                    ₹ UPI SIMULATION
                   </button>
                 </div>
 
-                {paymentMethod === 'card' && (
-                  <div className="space-y-5">
+                {paymentMethod === 'card' ? (
+                  <div className="p-6 border border-foreground/10 bg-foreground/[0.015] space-y-4">
                     <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">CARD NUMBER</label>
+                      <label className="text-[10px] font-bold tracking-widest uppercase text-foreground block mb-1">
+                        DEMO CARD NUMBER
+                      </label>
                       <input
                         type="text"
-                        name="cardNumber"
                         value={form.cardNumber}
-                        onChange={(e) => setForm(prev => ({ ...prev, cardNumber: formatCardNumber(e.target.value) }))}
-                        placeholder="4242 4242 4242 4242"
-                        maxLength={19}
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors font-mono tracking-wider"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">NAME ON CARD</label>
-                      <input
-                        type="text"
-                        name="cardName"
-                        value={form.cardName}
-                        onChange={handleChange}
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground focus:border-coral focus:outline-none transition-colors"
+                        readOnly
+                        className="w-full bg-transparent border border-foreground/15 px-3 py-2 text-xs font-mono text-foreground opacity-80"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">EXPIRY</label>
+                        <label className="text-[10px] font-bold tracking-widest uppercase text-foreground block mb-1">
+                          EXPIRY
+                        </label>
                         <input
                           type="text"
-                          name="expiry"
                           value={form.expiry}
-                          onChange={(e) => setForm(prev => ({ ...prev, expiry: formatExpiry(e.target.value) }))}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors font-mono"
+                          readOnly
+                          className="w-full bg-transparent border border-foreground/15 px-3 py-2 text-xs font-mono text-foreground opacity-80"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">CVV</label>
+                        <label className="text-[10px] font-bold tracking-widest uppercase text-foreground block mb-1">
+                          CVV
+                        </label>
                         <input
                           type="password"
-                          name="cvv"
                           value={form.cvv}
-                          onChange={handleChange}
-                          placeholder="•••"
-                          maxLength={4}
-                          className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors font-mono"
+                          readOnly
+                          className="w-full bg-transparent border border-foreground/15 px-3 py-2 text-xs font-mono text-foreground opacity-80"
                         />
                       </div>
                     </div>
                   </div>
-                )}
-
-                {paymentMethod === 'upi' && (
-                  <div className="space-y-5">
-                    <div>
-                      <label className="text-[10px] font-bold tracking-widest text-foreground uppercase mb-1.5 block">UPI ID</label>
-                      <input
-                        type="text"
-                        name="upiId"
-                        value={form.upiId}
-                        onChange={handleChange}
-                        placeholder="yourname@upi"
-                        className="w-full bg-transparent border border-foreground/15 px-4 py-3 text-sm text-foreground placeholder:text-muted/40 focus:border-coral focus:outline-none transition-colors"
-                      />
+                ) : (
+                  <div className="p-6 border border-foreground/10 bg-foreground/[0.015] space-y-4 text-center">
+                    <p className="text-xs font-bold text-foreground">DEMO UPI QR & VPA</p>
+                    <div className="w-32 h-32 mx-auto bg-foreground/5 border border-foreground/15 flex items-center justify-center font-mono text-[10px] text-muted">
+                      [DEMO QR CODE]
                     </div>
-                    <div className="border border-dashed border-foreground/15 p-6 flex flex-col items-center gap-3">
-                      <div className="w-32 h-32 bg-foreground/5 border border-foreground/10 flex items-center justify-center">
-                        <span className="text-[10px] text-muted font-bold tracking-widest">QR CODE</span>
-                      </div>
-                      <p className="text-[10px] text-muted font-bold tracking-wider uppercase">Scan to pay with any UPI app</p>
-                    </div>
+                    <p className="text-xs text-muted font-mono">{form.upiId}</p>
                   </div>
                 )}
 
-                <div className="flex gap-3 mt-8">
+                <div className="flex gap-4">
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="py-4 px-6 border border-foreground/15 text-xs font-black tracking-widest uppercase text-foreground hover:border-foreground/40 transition-colors"
+                    className="py-3 px-6 border border-foreground/15 text-xs font-bold uppercase"
                   >
                     ← BACK
                   </button>
                   <button
                     type="button"
                     onClick={handleReviewOrder}
-                    className="flex-1 py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-lg"
-                    style={{ boxShadow: '0 10px 25px rgba(255, 77, 77, 0.2)' }}
+                    className="flex-1 py-4 bg-coral text-white text-xs font-black tracking-widest uppercase hover:scale-[1.01] transition-transform"
                   >
-                    REVIEW ORDER →
+                    REVIEW ORDER DETAILS →
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP 3: REVIEW */}
+            {/* STEP 3: REVIEW & DEMO PURCHASE */}
             {step === 3 && (
-              <div className="animate-fadeIn">
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter text-foreground mb-1">REVIEW ORDER</h2>
-                <p className="text-xs text-muted font-medium tracking-wide mb-8">Confirm everything looks good before placing your order.</p>
-
-                {/* Shipping Summary */}
-                <div className="relative border border-foreground/10 p-5 mb-4">
-                  <div className="absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
-                  <div className="absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] border-foreground/30" />
-                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] border-foreground/30" />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] border-foreground/30" />
-                  <div className="absolute top-0 left-0 w-[5px] h-[5px] bg-coral" />
-
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-bold tracking-widest text-coral uppercase">SHIPPING</p>
-                    <button type="button" onClick={() => setStep(1)} className="text-[10px] font-bold tracking-widest text-foreground/40 hover:text-coral uppercase transition-colors">EDIT</button>
-                  </div>
-                  <p className="text-sm text-foreground font-bold">{form.firstName} {form.lastName}</p>
-                  <p className="text-xs text-muted">{form.address}</p>
-                  <p className="text-xs text-muted">{form.city}, {form.state} {form.zip}</p>
-                  <p className="text-xs text-muted mt-1">{form.email} &bull; {form.phone}</p>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-foreground mb-1">
+                    3. FINAL ORDER VERIFICATION
+                  </h2>
+                  <p className="text-xs text-muted">
+                    Review your delivery destination and confirm simulated payment.
+                  </p>
                 </div>
 
-                {/* Payment Summary */}
-                <div className="relative border border-foreground/10 p-5 mb-8">
-                  <div className="absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
-                  <div className="absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] border-foreground/30" />
-                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] border-foreground/30" />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] border-foreground/30" />
-
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-bold tracking-widest text-coral uppercase">PAYMENT</p>
-                    <button type="button" onClick={() => setStep(2)} className="text-[10px] font-bold tracking-widest text-foreground/40 hover:text-coral uppercase transition-colors">EDIT</button>
+                {/* Delivery Snapshot */}
+                <div className="p-4 border border-foreground/10 bg-foreground/[0.015]">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[9px] font-black tracking-widest text-coral uppercase">
+                      DELIVERY RECIPIENT
+                    </span>
+                    <button onClick={() => setStep(1)} className="text-[10px] text-muted hover:text-coral font-bold">
+                      EDIT
+                    </button>
                   </div>
-                  {paymentMethod === 'card' ? (
-                    <p className="text-sm text-foreground font-bold">
-                      💳 •••• •••• •••• {form.cardNumber.replace(/\s/g, '').slice(-4) || '0000'}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-foreground font-bold">₹ UPI — {form.upiId || 'Not set'}</p>
-                  )}
+                  <p className="text-xs font-bold text-foreground">
+                    {form.firstName} {form.lastName} ({form.phone})
+                  </p>
+                  <p className="text-xs text-muted">
+                    {form.address}, {form.city}, {form.state} {form.zip}
+                  </p>
+                  <p className="text-xs text-muted mt-1">{form.email}</p>
                 </div>
 
-                <div className="flex gap-3">
+                {/* Payment Simulation Warning */}
+                <div className="p-4 border border-amber-500/20 bg-amber-500/5 text-xs text-amber-800 dark:text-amber-400">
+                  <p className="font-bold mb-1">⚠️ Academic Demo Simulation Active</p>
+                  <p className="text-[11px] leading-relaxed">
+                    Clicking "COMPLETE DEMO PURCHASE" will test successful transaction creation, unique order ID generation, cart cleanup, and GA4 <code>purchase</code> event transmission.
+                  </p>
+                </div>
+
+                {demoPaymentFailed && (
+                  <div className="p-4 border border-red-500/30 bg-red-500/10 text-xs text-red-600 font-bold">
+                    ❌ Simulated Payment Failed. No order was created and no GA4 purchase event was sent. You can retry with the success button.
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
-                    className="py-4 px-6 border border-foreground/15 text-xs font-black tracking-widest uppercase text-foreground hover:border-foreground/40 transition-colors"
+                    disabled={isProcessing}
+                    onClick={() => handlePlaceOrder(false)}
+                    className="w-full py-4 bg-foreground text-background text-xs font-black tracking-widest uppercase hover:bg-coral transition-colors shadow-xl disabled:opacity-50"
                   >
-                    ← BACK
+                    {isProcessing ? 'PROCESSING SIMULATION...' : `COMPLETE DEMO PURCHASE — ₹${total.toLocaleString('en-IN')}`}
                   </button>
+
                   <button
-                    type="submit"
-                    className="flex-1 py-4 bg-foreground text-[var(--background)] text-xs font-black tracking-widest uppercase hover:scale-[1.02] transition-transform shadow-xl"
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => handlePlaceOrder(true)}
+                    className="w-full py-2.5 border border-red-500/30 text-red-500 text-[10px] font-bold tracking-widest uppercase hover:bg-red-500 hover:text-white transition-colors"
                   >
-                    PLACE ORDER — ₹{total.toLocaleString('en-IN')}
+                    TEST SIMULATED PAYMENT FAILURE
                   </button>
                 </div>
-
-                <p className="mt-4 text-[10px] text-muted/50 font-bold tracking-wider uppercase text-center">
-                  ⚠ Demo only — no real payment will be charged
-                </p>
               </div>
             )}
-          </form>
-        </div>
+          </div>
 
-        {/* RIGHT: Order Summary Sidebar */}
-        <div className="w-full lg:w-[380px] shrink-0">
-          <div className="sticky top-24">
-            <div className="relative border border-foreground/10 bg-foreground/[0.015] p-6">
-              {/* Corner Accents */}
-              <div className="absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
-              <div className="absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] border-foreground/30" />
-              <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] border-foreground/30" />
-              <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] border-foreground/30" />
-              <div className="absolute top-0 left-0 w-[5px] h-[5px] bg-coral" />
-              <div className="absolute bottom-0 right-0 w-[5px] h-[5px] bg-coral" />
+          {/* Sidebar Order Summary (Right: 5 Cols) */}
+          <div className="lg:col-span-5">
+            <div className="border border-foreground/15 bg-foreground/[0.015] p-6 sticky top-28">
+              <h3 className="text-xs font-black tracking-[0.25em] uppercase text-coral mb-4">
+                BAG ITEMS ({items.reduce((acc, i) => acc + i.quantity, 0)})
+              </h3>
 
-              {/* Tech label */}
-              <div className="absolute -top-[4px] left-6 px-1.5 bg-[var(--background)] flex items-center">
-                <span className="text-[6.5px] font-black tracking-[0.2em] text-foreground/40 uppercase leading-none">ORDER.SUM // 01</span>
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1 pb-4 border-b border-foreground/10">
+                {items.map((i, idx) => (
+                  <div key={idx} className="flex gap-3 items-center">
+                    <div className="relative w-12 h-12 bg-foreground/5 shrink-0 border border-foreground/10 overflow-hidden">
+                      <Image src={i.product.images[0]} alt={i.product.name} fill className="object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-foreground truncate">{i.product.name}</p>
+                      <p className="text-[10px] text-muted">
+                        {i.selectedColor} &bull; Qty {i.quantity}
+                      </p>
+                    </div>
+                    <span className="text-xs font-black text-foreground">
+                      ₹{(i.product.price * i.quantity).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ))}
               </div>
 
-              <p className="text-[10px] font-bold tracking-[0.3em] text-coral uppercase mb-4">ORDER SUMMARY</p>
-
-              {/* Product */}
-              <div className="flex items-start gap-4 pb-5 border-b border-foreground/10">
-                <div className="w-16 h-16 rounded border border-foreground/10 flex items-center justify-center bg-foreground/5 shrink-0">
-                  <div className="w-8 h-8 rounded-full" style={{ backgroundColor: selectedVariant.primary }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black tracking-widest text-foreground">SONA ONE</p>
-                  <p className="text-[10px] text-muted font-bold tracking-wider">
-                    {selectedVariant.name} &bull; Size {orderInfo.size}
-                  </p>
-                  <p className="text-[10px] text-muted font-bold tracking-wider">Qty: {orderInfo.quantity}</p>
-                </div>
-                <p className="text-sm font-black text-foreground whitespace-nowrap">₹{subtotal.toLocaleString('en-IN')}</p>
-              </div>
-
-              {/* Pricing */}
-              <div className="pt-5 space-y-3">
-                <div className="flex justify-between text-xs">
+              <div className="pt-4 space-y-2 text-xs">
+                <div className="flex justify-between">
                   <span className="text-muted font-medium">Subtotal</span>
                   <span className="text-foreground font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted font-medium">Shipping</span>
-                  <span className="text-coral font-bold">FREE</span>
+                <div className="flex justify-between">
+                  <span className="text-muted font-medium">Insured Shipping</span>
+                  <span className={shipping === 0 ? 'text-coral font-bold' : 'text-foreground font-bold'}>
+                    {shipping === 0 ? 'FREE' : `₹${shipping}`}
+                  </span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between">
                   <span className="text-muted font-medium">GST (18%)</span>
                   <span className="text-foreground font-bold">₹{tax.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="border-t border-foreground/10 pt-4 flex justify-between">
-                  <span className="text-sm font-black tracking-widest text-foreground uppercase">Total</span>
-                  <span className="text-xl font-black tracking-tight text-foreground">₹{total.toLocaleString('en-IN')}</span>
+                <div className="pt-3 border-t border-foreground/10 flex justify-between items-baseline">
+                  <span className="text-xs font-black tracking-widest uppercase text-foreground">TOTAL</span>
+                  <span className="text-lg font-black text-foreground">₹{total.toLocaleString('en-IN')}</span>
                 </div>
-              </div>
-
-              {/* Guarantees */}
-              <div className="mt-6 pt-5 border-t border-foreground/10 space-y-3">
-                {[
-                  { icon: '🔒', text: 'Secure SSL Encryption' },
-                  { icon: '🚚', text: 'Free Express Shipping' },
-                  { icon: '↩️', text: '30-Day Easy Returns' },
-                  { icon: '🛡️', text: '1 Year Warranty' },
-                ].map((g) => (
-                  <div key={g.text} className="flex items-center gap-3">
-                    <span className="text-sm">{g.icon}</span>
-                    <span className="text-[10px] font-bold tracking-widest text-muted uppercase">{g.text}</span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -676,4 +598,3 @@ export default function CheckoutPage() {
     </div>
   );
 }
-

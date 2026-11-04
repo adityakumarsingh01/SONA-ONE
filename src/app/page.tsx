@@ -2,12 +2,17 @@
 
 import { useRef, useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import ProductScene from "@/components/3d/ProductScene";
 import { setScrollProgress, getScrollProgress, registerScrollToSection, scrollToSection } from "@/lib/scrollStore";
 import { trackEcommerce, trackEvent } from "@/lib/gtag";
+import { PRODUCTS, CATEGORIES } from "@/lib/products";
+import ProductCard from "@/components/ui/ProductCard";
+import QuickViewModal from "@/components/ui/QuickViewModal";
+import { Product } from "@/lib/products";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -19,6 +24,7 @@ export default function Home() {
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(0);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   const VARIANTS = [
     {
@@ -809,6 +815,190 @@ export default function Home() {
         </div>
 
       </main>
+
+      {/* MULTI-PRODUCT STORE SECTION EXTENSIONS */}
+      <section className="relative z-40 bg-[var(--background)] py-20 border-t border-foreground/10">
+        <div className="w-full max-w-7xl mx-auto px-6 md:px-12">
+          
+          {/* 1. SHOP ALL HERO BANNER */}
+          <div className="relative border border-foreground/15 p-8 md:p-14 mb-24 bg-foreground/[0.015] overflow-hidden">
+            <div className="absolute top-0 left-0 w-3 h-3 border-t-[1.5px] border-l-[1.5px] border-foreground/40" />
+            <div className="absolute top-0 right-0 w-3 h-3 border-t-[1.5px] border-r-[1.5px] border-foreground/40" />
+            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[1.5px] border-l-[1.5px] border-foreground/40" />
+            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[1.5px] border-r-[1.5px] border-foreground/40" />
+            <div className="absolute top-0 left-0 w-2 h-2 bg-coral" />
+
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+              <div className="max-w-xl">
+                <span className="text-[10px] font-mono tracking-[0.3em] text-coral uppercase block mb-3">
+                  ACOUSTIC COLLECTION 2026
+                </span>
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-foreground mb-4">
+                  MORE THAN HEADPHONES. COMPLETE AUDIOPHILE LINEUP.
+                </h2>
+                <p className="text-xs md:text-sm text-muted leading-relaxed font-medium">
+                  Explore our comprehensive ecosystem spanning spatial true wireless earbuds, tournament zero-latency gaming headsets, and omnidirectional Bluetooth sound fields.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 shrink-0">
+                <Link
+                  href="/shop"
+                  className="px-8 py-4 bg-foreground text-background text-xs font-black tracking-widest uppercase hover:bg-coral hover:text-white transition-colors text-center shadow-lg"
+                >
+                  SHOP ALL PRODUCTS →
+                </Link>
+                <Link
+                  href="/categories"
+                  className="px-8 py-4 border border-foreground/20 text-foreground text-xs font-black tracking-widest uppercase hover:border-foreground transition-colors text-center"
+                >
+                  BROWSE CATEGORIES
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. BESTSELLERS SHOWCASE */}
+          <div className="mb-24">
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-foreground/10">
+              <div>
+                <p className="text-[9px] font-black tracking-[0.3em] text-coral uppercase">
+                  HIGH DEMAND
+                </p>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
+                  BESTSELLERS
+                </h2>
+              </div>
+              <Link href="/shop" className="text-xs font-black tracking-widest uppercase text-foreground hover:text-coral transition-colors">
+                SEE ALL →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {PRODUCTS.filter(p => p.badge === 'Bestseller').slice(0, 4).map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onQuickView={(p) => setQuickViewProduct(p)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* 3. CATEGORY SHOWCASE STRIP */}
+          <div className="mb-24">
+            <div className="mb-8 pb-4 border-b border-foreground/10 text-center md:text-left">
+              <p className="text-[9px] font-black tracking-[0.3em] text-coral uppercase">
+                ENGINEERING DOMAINS
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
+                BROWSE BY CATEGORY
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {CATEGORIES.map(cat => (
+                <Link
+                  key={cat.slug}
+                  href={`/shop?category=${cat.slug}`}
+                  className="group p-5 border border-foreground/10 bg-foreground/[0.015] hover:border-coral/50 transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <span className="text-[8px] font-bold tracking-widest text-coral uppercase block mb-1">
+                      {cat.itemCount} PRODUCTS
+                    </span>
+                    <h3 className="text-sm font-black text-foreground group-hover:text-coral transition-colors line-clamp-1">
+                      {cat.name}
+                    </h3>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-foreground/5 flex items-center justify-between text-[10px] font-black text-muted group-hover:text-foreground">
+                    <span>EXPLORE</span>
+                    <span>→</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. NEW ARRIVALS */}
+          <div className="mb-24">
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-foreground/10">
+              <div>
+                <p className="text-[9px] font-black tracking-[0.3em] text-coral uppercase">
+                  JUST LANDED
+                </p>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
+                  NEW ARRIVALS
+                </h2>
+              </div>
+              <Link href="/shop" className="text-xs font-black tracking-widest uppercase text-foreground hover:text-coral transition-colors">
+                SEE ALL →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {PRODUCTS.filter(p => p.badge === 'New Arrival' || p.badge === 'Limited Edition').slice(0, 4).map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onQuickView={(p) => setQuickViewProduct(p)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* 5. WHY CHOOSE SONA ARCHITECTURAL HIGHLIGHTS */}
+          <div className="mb-24 py-16 px-8 md:px-12 border border-foreground/10 bg-foreground/[0.015]">
+            <div className="text-center max-w-xl mx-auto mb-12">
+              <p className="text-[9px] font-black tracking-[0.3em] text-coral uppercase mb-2">
+                THE SONA STANDARD
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">
+                WHY CHOOSE SONA ONE
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="p-6 border border-foreground/10 bg-background">
+                <span className="text-2xl mb-4 block">🔬</span>
+                <h3 className="text-sm font-black tracking-wider uppercase text-foreground mb-2">
+                  CUSTOM GRAPHENE TRANSDUCERS
+                </h3>
+                <p className="text-xs text-muted leading-relaxed">
+                  Rigid, ultra-thin graphene diaphragms eliminate harmonic break-up and phase distortion, delivering pristine audio reproduction up to 48kHz.
+                </p>
+              </div>
+
+              <div className="p-6 border border-foreground/10 bg-background">
+                <span className="text-2xl mb-4 block">🛡️</span>
+                <h3 className="text-sm font-black tracking-wider uppercase text-foreground mb-2">
+                  AEROSPACE ALUMINUM CHASSIS
+                </h3>
+                <p className="text-xs text-muted leading-relaxed">
+                  Every structural hinge and slider is CNC-milled from 6000-series alloy for decades of durability without creaks or rattling.
+                </p>
+              </div>
+
+              <div className="p-6 border border-foreground/10 bg-background">
+                <span className="text-2xl mb-4 block">⚡</span>
+                <h3 className="text-sm font-black tracking-wider uppercase text-foreground mb-2">
+                  DOMESTIC LAB ASSURANCE
+                </h3>
+                <p className="text-xs text-muted leading-relaxed">
+                  Backed by our Bengaluru acoustic engineering headquarters with 24-hour express insured air shipping and a 1-year replacement warranty.
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Quick View Modal on Homepage */}
+      <QuickViewModal
+        product={quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+      />
 
       {/* FINAL FOOTER */}
       <footer ref={footerRef} className="relative w-full bg-[var(--background)] pt-12 pb-8 overflow-hidden z-40 border-t border-foreground/10 flex flex-col items-center">

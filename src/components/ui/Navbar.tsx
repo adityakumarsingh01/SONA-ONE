@@ -2,147 +2,206 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { scrollToSection, subscribeScroll, Section } from '@/lib/scrollStore';
+import { usePathname } from 'next/navigation';
+import { useCart } from '@/lib/cartStore';
+import { useWishlist } from '@/lib/wishlistStore';
+import CartDrawer from '@/components/ui/CartDrawer';
+import SearchModal from '@/components/ui/SearchModal';
 
-const NAV_ITEMS: { label: string; section: Section }[] = [
-  { label: 'PRODUCT', section: 'product' },
-  { label: 'TECHNOLOGY', section: 'technology' },
-  { label: 'SOUND', section: 'sound' },
-  { label: 'ABOUT', section: 'about' }
+const NAV_LINKS = [
+  { label: 'HOME', href: '/' },
+  { label: 'SHOP ALL', href: '/shop' },
+  { label: 'CATEGORIES', href: '/categories' },
+  { label: 'ABOUT', href: '/about' },
+  { label: 'CONTACT', href: '/contact' },
 ];
 
 export default function Navbar() {
-  const [activeSection, setActiveSection] = useState<Section>('top');
+  const pathname = usePathname();
+  const { itemCount, setIsCartOpen } = useCart();
+  const { wishlistCount } = useWishlist();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-    return subscribeScroll((p) => {
-      if (p < 0.9) setActiveSection('top');
-      else if (p < 1.9) setActiveSection('technology');
-      else if (p < 2.9) setActiveSection('sound');
-      else if (p < 3.9) setActiveSection('product');
-      else setActiveSection('about');
-    });
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleNavClick = (section: Section) => {
-    setIsMenuOpen(false);
-    scrollToSection(section);
-  };
 
   return (
     <>
-      <nav id="global-nav" className="fixed top-0 left-0 w-full z-[100] px-6 md:px-12 py-5 flex justify-between items-center text-[10px] font-black tracking-[0.2em] uppercase opacity-0 overflow-x-hidden backdrop-blur-md bg-[var(--background)]/80 border-b border-foreground/5 transition-all duration-300">
-        <div className="flex-1">
-          <button 
-            onClick={() => handleNavClick('top')} 
-            className="text-foreground hover:text-coral transition-colors flex items-center gap-2 w-max cursor-pointer"
-            aria-label="Scroll to top"
+      <header
+        id="global-nav"
+        className={`fixed top-0 left-0 w-full z-[100] px-6 md:px-12 py-4 flex justify-between items-center text-[10px] font-black tracking-[0.2em] uppercase backdrop-blur-md transition-all duration-300 ${
+          isScrolled
+            ? 'bg-[var(--background)]/90 border-b border-foreground/10 shadow-sm'
+            : 'bg-[var(--background)]/75 border-b border-foreground/5'
+        }`}
+      >
+        {/* Brand Logo */}
+        <div className="flex-1 flex items-center">
+          <Link
+            href="/"
+            className="text-foreground hover:text-coral transition-colors flex items-center gap-2 group cursor-pointer"
+            aria-label="SONA Homepage"
           >
-            <span className="block w-1.5 h-1.5 bg-coral rounded-full" />
-            <span className="font-black text-xs tracking-[0.3em]">SONA</span>
-          </button>
+            <span className="block w-2 h-2 bg-coral rounded-full group-hover:scale-125 transition-transform" />
+            <span className="font-black text-sm tracking-[0.3em]">SONA ONE</span>
+          </Link>
         </div>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex gap-12 justify-center flex-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = activeSection === item.section;
+        {/* Desktop Navigation Links */}
+        <nav className="hidden lg:flex gap-6 xl:gap-8 justify-center items-center flex-shrink-0">
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
             return (
-              <button 
-                key={item.label} 
-                onClick={() => handleNavClick(item.section)} 
-                className="relative group text-foreground/60 hover:text-foreground transition-colors py-2 flex items-center gap-2"
-                aria-current={isActive ? 'page' : undefined}
+              <Link
+                key={link.label}
+                href={link.href}
+                className={`relative py-2 text-foreground/70 hover:text-foreground transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                  isActive ? 'text-foreground font-black' : ''
+                }`}
               >
-                {isMounted && isActive && <span className="block w-1 h-1 bg-coral rounded-full absolute -left-3 top-1/2 -translate-y-1/2" />}
-                {item.label}
-                <span className="block absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-[1.5px] bg-coral transition-all duration-300 group-hover:w-full opacity-0 group-hover:opacity-100" />
-              </button>
+                {isActive && <span className="block w-1 h-1 bg-coral rounded-full absolute -left-2.5 top-1/2 -translate-y-1/2" />}
+                <span className="whitespace-nowrap">{link.label}</span>
+                <span
+                  className={`block absolute bottom-0 left-1/2 -translate-x-1/2 h-[1.5px] bg-coral transition-all duration-300 ${
+                    isActive ? 'w-full' : 'w-0 group-hover:w-full'
+                  }`}
+                />
+              </Link>
             );
           })}
-        </div>
+        </nav>
 
-        {/* Desktop Explore */}
-        <div className="hidden md:flex flex-1 justify-end">
-          <button 
-            onClick={() => handleNavClick('next')} 
-            className="group flex items-center gap-3 text-foreground hover:text-coral transition-colors cursor-pointer"
-            aria-label="Explore next section"
+        {/* Right Action Icons: Search, Wishlist, Cart */}
+        <div className="flex items-center gap-5 md:gap-6 flex-1 justify-end">
+          {/* Search Trigger */}
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            className="flex items-center gap-1.5 text-foreground hover:text-coral transition-colors"
+            aria-label="Search products"
           >
-            <span>EXPLORE</span>
-            <span className="block w-8 h-[1px] bg-foreground/60 group-hover:bg-coral group-hover:w-12 transition-all duration-300 relative">
-              <span className="block absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 border-t border-r border-foreground/60 group-hover:border-coral rotate-45 transition-colors" />
-            </span>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current stroke-2 fill-none">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <span className="hidden sm:inline text-[9px] tracking-widest font-black">SEARCH</span>
           </button>
-        </div>
 
-        {/* Mobile Menu Toggle */}
-        <div className="flex md:hidden justify-end flex-1">
-          <button 
-            onClick={() => setIsMenuOpen(true)}
-            className="flex flex-col gap-[4px] w-6 group items-end p-2 -mr-2 cursor-pointer"
-            aria-expanded={isMenuOpen}
-            aria-label="Open menu"
+          {/* Wishlist Link */}
+          <Link
+            href="/shop?filter=wishlist"
+            className="relative flex items-center text-foreground hover:text-coral transition-colors"
+            aria-label="Wishlist"
           >
-            <span className="w-full h-[1.5px] bg-foreground group-hover:bg-coral transition-colors" />
-            <span className="w-3/4 h-[1.5px] bg-foreground group-hover:bg-coral transition-colors" />
-          </button>
-        </div>
-      </nav>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current stroke-2 fill-none">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            {wishlistCount > 0 && (
+              <span className="absolute -top-2 -right-2.5 w-4 h-4 bg-coral text-white rounded-full text-[8px] font-black flex items-center justify-center">
+                {wishlistCount}
+              </span>
+            )}
+          </Link>
 
-      {/* Mobile Menu Overlay */}
-      <div 
-        className={`fixed inset-0 z-[110] bg-[var(--background)] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] md:hidden ${
+          {/* Cart Drawer Trigger */}
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="relative flex items-center gap-2 px-3 py-1.5 bg-foreground text-background hover:bg-coral hover:text-white transition-colors"
+            aria-label="Shopping bag"
+          >
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-current stroke-2 fill-none">
+              <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <span className="text-[9px] font-black tracking-widest">BAG ({itemCount})</span>
+          </button>
+
+          {/* Mobile Menu Hamburger */}
+          <div className="flex lg:hidden">
+            <button
+              onClick={() => setIsMenuOpen(true)}
+              className="flex flex-col gap-[4px] w-6 group items-end p-2 -mr-2 cursor-pointer"
+              aria-expanded={isMenuOpen}
+              aria-label="Open menu"
+            >
+              <span className="w-full h-[1.5px] bg-foreground group-hover:bg-coral transition-colors" />
+              <span className="w-3/4 h-[1.5px] bg-foreground group-hover:bg-coral transition-colors" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Drawer Menu */}
+      <div
+        className={`fixed inset-0 z-[160] bg-[var(--background)] flex flex-col transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] lg:hidden ${
           isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         <div className="w-full px-6 py-5 flex justify-between items-center border-b border-foreground/5">
-          <button 
-            onClick={() => handleNavClick('top')} 
-            className="text-foreground hover:text-coral transition-colors flex items-center gap-2 cursor-pointer"
-          >
-            <span className="block w-1.5 h-1.5 bg-coral rounded-full" />
-            <span className="font-black text-xs tracking-[0.3em] uppercase">SONA</span>
-          </button>
-          
-          <button 
+          <Link
+            href="/"
             onClick={() => setIsMenuOpen(false)}
-            className="text-[10px] font-black tracking-[0.2em] uppercase text-foreground hover:text-coral transition-colors p-2 -mr-2"
-            aria-label="Close menu"
+            className="text-foreground hover:text-coral transition-colors flex items-center gap-2"
           >
-            CLOSE
+            <span className="block w-2 h-2 bg-coral rounded-full" />
+            <span className="font-black text-xs tracking-[0.3em]">SONA ONE</span>
+          </Link>
+
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className="text-[10px] font-black tracking-[0.2em] uppercase text-foreground hover:text-coral transition-colors p-2"
+          >
+            CLOSE ✕
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col justify-center px-10 gap-8">
-          {NAV_ITEMS.map((item) => {
-            const isActive = activeSection === item.section;
+        <nav className="flex-1 flex flex-col justify-center px-10 gap-6">
+          {NAV_LINKS.map((link) => {
+            const isActive = pathname === link.href;
             return (
-              <button
-                key={item.label}
-                onClick={() => handleNavClick(item.section)}
-                className="text-left flex items-center gap-4 text-3xl font-black tracking-widest uppercase transition-colors"
-                style={{ color: isActive ? 'var(--foreground)' : 'var(--foreground)', opacity: isActive ? 1 : 0.4 }}
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`text-left flex items-center gap-3 text-2xl font-black tracking-widest uppercase transition-colors ${
+                  isActive ? 'text-coral' : 'text-foreground/70 hover:text-foreground'
+                }`}
               >
-                {isMounted && isActive && <span className="block w-2 h-2 bg-coral rounded-full" />}
-                {item.label}
-              </button>
+                {isActive && <span className="block w-2 h-2 bg-coral rounded-full" />}
+                {link.label}
+              </Link>
             );
           })}
-        </div>
+        </nav>
 
-        <div className="p-10 border-t border-foreground/5">
-          <button 
-            onClick={() => handleNavClick('next')}
-            className="flex items-center gap-4 text-xs font-black tracking-[0.2em] uppercase text-foreground hover:text-coral transition-colors"
+        <div className="p-8 border-t border-foreground/5 flex flex-col gap-3">
+          <button
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsSearchOpen(true);
+            }}
+            className="w-full py-3 border border-foreground/15 text-center text-xs font-black tracking-widest uppercase text-foreground hover:border-coral hover:text-coral transition-colors"
           >
-            EXPLORE THE PRODUCT →
+            SEARCH CATALOGUE 🔍
           </button>
+          <Link
+            href="/shop"
+            onClick={() => setIsMenuOpen(false)}
+            className="w-full py-3.5 bg-foreground text-background text-center text-xs font-black tracking-widest uppercase hover:bg-coral transition-colors"
+          >
+            SHOP ALL AUDIO →
+          </Link>
         </div>
       </div>
+
+      {/* Cart Drawer & Search Modal Components */}
+      <CartDrawer />
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
   );
 }

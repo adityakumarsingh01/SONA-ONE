@@ -1,145 +1,125 @@
-# SONA ONE - Premium Headphone Experience
+# SONA ONE – Multi-Product Audiophile E-Commerce Experience
 
-A highly interactive, 3D-driven web experience built to showcase the fictional SONA ONE premium wireless headphones. This project focuses on cinematic product storytelling, fluid scroll animations, and minimalist architectural design.
+A comprehensive, multi-product e-commerce platform and 3D product showcase for **SONA ONE** audio products. Built with Next.js 16 (App Router), React 19, TypeScript, GSAP ScrollTrigger, and Tailwind CSS. Integrated with Google Analytics 4 (GA4) with complete e-commerce event tracking.
 
-![Hero Section](./public/docs/hero.png)
+**Website:** [https://sona-one-gamma.vercel.app/](https://sona-one-gamma.vercel.app/)  
+**Tagline:** SOUND. UNBOUND.
 
-## Core Features
+---
 
-- **Scroll-Driven 3D Exploration:** Built with React Three Fiber and GSAP, the 3D headphone model acts as the continuous central element. As the user scrolls, the camera, lighting, and model rotation smoothly transition between narrative phases.
-- **Cinematic Storytelling:** Instead of disjointed sections, the experience flows continuously from a technical blueprint intro, through product reveals, into an immersive sound field, and concludes with an interactive configurator.
-- **Premium Minimalist Design:** Employs a restrained color palette, high-fidelity typography, technical polar grids, and extremely subtle hover interactions to evoke the feeling of high-end hardware engineering.
+## 1. Project Overview & Multi-Product Architecture
 
-![Technology Phase](./public/docs/specs.png)
+The platform features an acoustic ecosystem across 5 major categories and 12+ audio products, complete with cart persistence, instant search, wishlist management, dynamic filtering, multi-product checkout, simulated demo payment, and order confirmation.
 
-- **Intelligent Navigation:** A custom smooth-scroll navigation system that bridges DOM clicks with the GSAP ScrollTrigger timeline, ensuring that jumping between sections never breaks the 3D animation states.
-- **Responsive Architecture:** Distinct mobile and desktop layouts ensure the 3D canvas and typography remain perfectly balanced across all viewports.
+### Site Navigation & Pages
+1. **Home (`/`)**: Cinematic 3D interactive headphone showcase, technical scroll breakdown, Bestsellers, New Arrivals, Category showcase, and brand highlights.
+2. **Shop All (`/shop`)**: Complete product catalogue with interactive sorting (price, rating, newest, featured), price range slider, category toggles, wishlist filter, and quick-view modals.
+3. **Product Details (`/product/[slug]`)**: SSG pre-rendered dynamic pages with multi-image gallery, finish selectors, specifications tab, verified reviews, stock status, and related products.
+4. **Categories (`/categories`)**: Visual directory of audio domains (Wireless Headphones, Earbuds, Gaming Headsets, Bluetooth Speakers, Accessories).
+5. **Shopping Bag (`/cart`)**: Client-persisted shopping bag with real-time price updates, 18% GST calculation, quantity adjustments, and insured shipping indicators.
+6. **Checkout (`/checkout`)**: 3-step checkout flow (Shipping address, demo payment simulation with Card/UPI, and final order review).
+7. **Order Confirmation (`/order-confirmation`)**: Order summary with generated unique order ID (`SONA-XXXXXX`) and items purchased.
+8. **About Us (`/about`)**: Acoustic engineering philosophy, driver matching precision, and laboratory standards.
+9. **Contact Us (`/contact`)**: Support channels, warranty information, and customer inquiry form.
 
-![Sound Phase](./public/docs/sound.png)
+---
 
-## Technology Stack
+## 2. Product Catalogue
 
-- **Framework:** Next.js 16 (App Router) & React 19
-- **3D Rendering:** Three.js, React Three Fiber, React Three Drei
+Centrally managed in `src/lib/products.ts`:
+
+| Category | Products | Price (INR) | Key Features |
+| :--- | :--- | :--- | :--- |
+| **Wireless Headphones** | SONA ONE | ₹9,999 | 40mm Graphene Drivers, 24h Battery, Hybrid ANC |
+| | SONA Auralux Pro | ₹18,999 | 50mm Planar Magnetic, Lossless LDAC, Lambskin Pads |
+| | SONA Nova X | ₹7,499 | 195g Ultralight, Foldable, Ambient Mode |
+| | SONA Phantom Max | ₹11,999 | Haptic Sub-Bass Resonator, Cinema Immersion |
+| **Wireless Earbuds** | SONA AirPods Neo | ₹5,999 | 11mm Beryllium Drivers, 48dB ANC, Qi Wireless Case |
+| | SONA Buds Pro | ₹8,499 | Coaxial Dual-Driver (Dynamic + Knowles BA), LDAC |
+| | SONA MiniPods | ₹3,499 | 3.2g Invisible Sleep Profile, IPX7 Waterproof |
+| **Gaming Headsets** | SONA Phantom 7.1 | ₹12,499 | 2.4GHz Zero-Latency, 7.1 DSP, Cooling Gel Pads |
+| | SONA Arena X | ₹4,999 | 220g Tournament Headset, 3.5mm Gold-Plated |
+| **Portable Bluetooth Speakers** | SONA Boom 360 | ₹8,999 | 60W Omnidirectional 360, Dual Radiators, IP67 |
+| | SONA Pulse Mini | ₹3,999 | 12W Machined Aluminum Puck, Magnetic Base |
+| **Accessories** | SONA Flex Charging Case | ₹2,499 | 10,000mAh Battery Reserve, Ballistic Nylon |
+| | SONA AudioLink Cable | ₹1,499 | 8-Core Braided Silver OFC, 24-bit/192kHz DAC Dongle |
+
+---
+
+## 3. Technology Stack
+
+- **Framework:** Next.js 16 (App Router with Static Site Generation)
+- **Library:** React 19
+- **Languages:** TypeScript
+- **3D Graphics:** Three.js, React Three Fiber, React Three Drei
 - **Animation Orchestration:** GSAP (GreenSock) & ScrollTrigger
 - **Styling:** Tailwind CSS v4
-- **Language:** TypeScript
+- **State Management:** Custom React Context stores with `localStorage` persistence:
+  - `src/lib/cartStore.tsx` — Shopping bag state, price recalculations, and drawer triggers.
+  - `src/lib/wishlistStore.tsx` — Wishlist items and persistence.
+- **Analytics:** Google Analytics 4 (GA4) with native DataLayer queuing and Next.js Script strategy.
 
-![Interactive Configurator](./public/docs/configurator.png)
+---
 
-## Architecture Details
+## 4. Google Analytics 4 (GA4) Integration
 
-The application is built around a unified scroll architecture. Rather than triggering localized animations based on intersection observers, the entire page is pinned, and a single master GSAP timeline maps the user's scroll progress (from 0.0 to 5.4) to specific states in both the DOM and the 3D canvas.
+The project has GA4 integration via `src/lib/gtag.ts` and `src/components/analytics/GoogleAnalytics.tsx`.
 
-This centralized state is broadcasted via a lightweight Zustand-style store (`scrollStore.ts`), allowing independent components like the `Navbar` and the `ProductScene` to react to scroll progress in perfect synchronization.
+### Measurement Configuration
+- **Measurement ID:** `G-B8GQF174JM`
+- **Environment Variable:** `NEXT_PUBLIC_GA_MEASUREMENT_ID`
 
-## Getting Started
+#### Local Environment (`.env.local`)
+```env
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-B8GQF174JM
+```
+
+#### Vercel Environment Variables
+Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` to `G-B8GQF174JM` across Production, Preview, and Development.
+
+### Tracked E-Commerce Events
+1. **`view_item_list`**: Triggered when visiting `/shop` or catalogue sections.
+2. **`select_item`**: Triggered when selecting product cards or switching finishes.
+3. **`view_item`**: Triggered on `/product/[slug]` details page loads.
+4. **`search`**: Triggered when using the instant header search modal.
+5. **`add_to_cart`**: Triggered from product cards, quick view modals, or details pages.
+6. **`remove_from_cart`**: Triggered when removing items from the cart.
+7. **`view_cart`**: Triggered when opening `/cart`.
+8. **`begin_checkout`**: Triggered on checkout initiation or Buy Now clicks.
+9. **`add_shipping_info`**: Triggered upon completion of shipping address step.
+10. **`add_payment_info`**: Triggered after selecting payment method (Card or UPI).
+11. **`purchase`**: Triggered strictly after successful simulated demo payment with unique transaction ID and full item manifest.
+
+---
+
+## 5. Local Development Commands
 
 1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Run the development server:**
+2. **Run development server:**
    ```bash
    npm run dev
    ```
 
-3. **Open the application:**
-   Navigate to `http://localhost:3000` in your browser.
+3. **Run production build:**
+   ```bash
+   npm run build
+   ```
 
-## Design Philosophy
+4. **Start production server:**
+   ```bash
+   npm run start
+   ```
 
-The visual direction was heavily inspired by industrial design blueprints and premium audio hardware. 
-- Avoidance of conventional SaaS aesthetics (no heavy shadows, large gradients, or excessive glassmorphism).
-- Use of functional UI elements (e.g., crosshairs, data nodes, thin technical borders).
-- Interactions prioritize exploration over immediate conversion, exemplified by the subtle "EXPLORE SONA" primary CTA.
+---
 
-## Google Analytics 4 (GA4) Integration
+## 6. Production Deployment
 
-The SONA ONE e-commerce store is integrated with Google Analytics 4 (GA4) using Next.js App Router best practices, featuring complete e-commerce funnel tracking and privacy-safe event dispatching.
-
-### 1. Configuration & Environment Variables
-
-The application expects the GA4 Measurement ID in `NEXT_PUBLIC_GA_MEASUREMENT_ID`.
-
-#### Local Environment Setup
-Create or update `.env.local` in the project root:
-```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-B8GQF174JM
-```
-
-#### Vercel Production Environment Setup
-1. Open the project dashboard in [Vercel](https://vercel.com).
-2. Go to **Settings** > **Environment Variables**.
-3. Add a new variable:
-   - **Key:** `NEXT_PUBLIC_GA_MEASUREMENT_ID`
-   - **Value:** `G-B8GQF174JM`
-   - **Environments:** Production, Preview, Development
-4. Since Next.js inlines `NEXT_PUBLIC_*` variables during static optimization, trigger a **Redeploy** on Vercel after saving.
-
-### 2. Tracked Events & Lifecycle
-
-All events are handled through a dedicated utility in `src/lib/gtag.ts` and loaded synchronously via an inline initialization stub in `src/components/analytics/GoogleAnalytics.tsx`.
-
-#### Standard & Page Events
-- **`page_view`**: Triggered automatically on initial landing via the primary `gtag('config')` execution, and subsequently upon client-side Next.js route transitions (`usePathname`, `useSearchParams`). Duplicate page views are strictly prevented using ref-based previous-URL tracking.
-
-#### GA4 E-Commerce Events
-- **`view_item_list`**: Dispatched on homepage mount when product color variants are loaded into view.
-- **`view_item`**: Dispatched on homepage mount for the active default product variant (`SONA ONE`).
-- **`select_item`**: Dispatched whenever a user clicks and selects a different color variant.
-- **`add_to_cart`**: Dispatched when the user clicks **Add To Cart** in the configurator.
-- **`view_cart`**: Dispatched when entering `/checkout` with order parameters.
-- **`begin_checkout`**: Dispatched when the user clicks **Buy Now** or initiates checkout.
-- **`add_shipping_info`**: Dispatched after completing Step 1 (Shipping Details) and moving to Payment.
-- **`add_payment_info`**: Dispatched after selecting the payment method (Card or UPI) and proceeding to Review.
-- **`purchase`**: Dispatched strictly upon confirmed demo order placement with a unique transaction ID (`SONA-XXXXXX`), verified revenue, tax, and item details. Deduplicated against re-renders.
-
-### 3. E-Commerce Payload Structure
-
-All e-commerce events use standard GA4 schemas and default to `INR` currency:
-```javascript
-{
-  currency: "INR",
-  value: 11799,
-  transaction_id: "SONA-AB12CD",
-  tax: 1800,
-  shipping: 0,
-  payment_type: "Credit/Debit Card", // or "UPI"
-  items: [
-    {
-      item_id: "sona-one-red",
-      item_name: "SONA ONE - SONA Red",
-      item_category: "Headphones",
-      item_variant: "SONA Red / M",
-      price: 9999,
-      quantity: 1
-    }
-  ]
-}
-```
-
-### 4. Privacy & Data Protection Compliance
-
-To protect user confidentiality, **no Personally Identifiable Information (PII)** is ever sent to GA4:
-- Customer names, street addresses, phone numbers, and email addresses entered on the checkout form are never attached to GA4 event payloads.
-- Payment details (card numbers, CVVs, expiry dates, and UPI IDs) remain strictly local to the client state and are completely excluded from analytics.
-
-### 5. Testing & Verification Guide
-
-#### Testing Locally
-1. Run `npm run build` to verify compilation and static generation with zero TypeScript or route errors.
-2. Run `npm run dev` and open the site with Google Analytics Debugger Chrome extension enabled.
-3. Open Developer Tools > **Console** to view debug logs.
-4. In Developer Tools > **Network**, filter by `collect?v=2` or `google-analytics.com` to observe event payloads.
-
-#### Verification in Google Analytics 4
-1. **Realtime Overview:**
-   - Navigate to **Reports** > **Realtime** in your GA4 property.
-   - Browse the website; an active user count and events (`page_view`, `view_item`, `select_item`) will appear within seconds.
-2. **DebugView:**
-   - Enable the [Google Analytics Debugger extension](https://chromewebstore.google.com/detail/google-analytics-debugger/jnkmfdgtfacingbgpegjdlamfdjlmgfk) in Chrome.
-   - In GA4, go to **Admin** > **DebugView** to inspect real-time event timelines and verify parameters (`transaction_id`, `value`, `items`).
-3. **Monetization & Ecommerce Reports:**
-   - Full standard reports update within 24–48 hours under **Reports** > **Monetization** > **Ecommerce purchases**.
+This project is deployed on **Vercel**:
+- Branch: `main`
+- Build Command: `next build`
+- Output Directory: `.next`
+- Install Command: `npm install`
