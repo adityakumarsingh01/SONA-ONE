@@ -2,75 +2,71 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
-
-declare global {
-    interface Window {
-        dataLayer: unknown[][];
-        gtag?: (...args: unknown[]) => void;
-        __sonaGaInitialized?: boolean;
-    }
-}
-
-const GA_MEASUREMENT_ID =
-    process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+import { Suspense, useEffect, useRef } from "react";
+import { GA_MEASUREMENT_ID, trackPageView } from "@/lib/gtag";
 
 function GoogleAnalyticsTracker() {
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const queryString = searchParams.toString();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isFirstRender = useRef(true);
+  const previousUrl = useRef<string | null>(null);
 
-    const [isInitialized, setIsInitialized] = useState(false);
+  useEffect(() => {
+    if (!GA_MEASUREMENT_ID) return;
 
-    const initializeGA = () => {
-        if (!GA_MEASUREMENT_ID) return;
+    const search = searchParams ? searchParams.toString() : "";
+    const currentUrl = search ? `${pathname}?${search}` : pathname;
 
-        window.dataLayer = window.dataLayer || [];
+    // Skip the first render because gtag('config') sent the initial page_view synchronously
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      previousUrl.current = currentUrl;
+      return;
+    }
 
-        if (!window.gtag) {
-            window.gtag = (...args: unknown[]) => {
-                window.dataLayer.push(args);
-            };
-        }
+    // Trigger page_view only on genuine client-side route changes
+    if (previousUrl.current !== currentUrl) {
+      previousUrl.current = currentUrl;
+      trackPageView(window.location.href, document.title);
+    }
+  }, [pathname, searchParams]);
 
-        if (!window.__sonaGaInitialized) {
-            window.gtag("js", new Date());
+  if (!GA_MEASUREMENT_ID) return null;
 
-            window.gtag("config", GA_MEASUREMENT_ID, {
-                send_page_view: false,
+  return (
+    <>
+      {/* 1. Synchronously initialize window.dataLayer and window.gtag command queue */}
+      <Script
+        id="google-analytics-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            window.gtag = gtag;
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}', {
+              page_path: window.location.pathname,
+              send_page_view: true
             });
+          `,
+        }}
+      />
 
-            window.__sonaGaInitialized = true;
-        }
-
-        setIsInitialized(true);
-    };
-
-    useEffect(() => {
-        if (!isInitialized || !window.gtag) return;
-
-        window.gtag("event", "page_view", {
-            page_path: pathname,
-            page_location: window.location.href,
-            page_title: document.title,
-        });
-    }, [pathname, queryString, isInitialized]);
-
-    if (!GA_MEASUREMENT_ID) return null;
-
-    return (
-        <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-            strategy="afterInteractive"
-            onReady={initializeGA}
-        />
-    );
+      {/* 2. Load the external Google Tag Library */}
+      <Script
+        id="google-analytics-loader"
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+      />
+    </>
+  );
 }
 
 export default function GoogleAnalytics() {
-    return (
-        <Suspense fallback={null}>
-            <GoogleAnalyticsTracker />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={null}>
+      <GoogleAnalyticsTracker />
+    </Suspense>
+  );
 }
